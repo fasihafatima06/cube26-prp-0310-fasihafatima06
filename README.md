@@ -8,6 +8,14 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![SQLite](https://img.shields.io/badge/SQLite-3-003B57.svg?logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Tests](https://img.shields.io/badge/Tests-15%20Passed-emerald.svg)](backend/test_agentprep.py)
+[![Netlify Status](https://img.shields.io/badge/Netlify-Live%20Demo-00A09D.svg?logo=netlify&logoColor=white)](https://agentprep.netlify.app)
+
+---
+
+### 🌐 Live Deployment & Interactive Demo
+- **🖥️ Live Web Application:** [https://agentprep.netlify.app](https://agentprep.netlify.app)
+- **⚡ Live Backend API & Swagger Docs:** [https://cube26-prp-0310-fasihafatima06.onrender.com/docs](https://cube26-prp-0310-fasihafatima06.onrender.com/docs)
+- **📦 GitHub Repository:** [https://github.com/fasihafatima06/cube26-prp-0310-fasihafatima06](https://github.com/fasihafatima06/cube26-prp-0310-fasihafatima06)
 
 ---
 
