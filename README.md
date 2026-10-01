@@ -1,184 +1,193 @@
-# Cube Buildathon · 02 · Prep Manager
+# AgentPrep — Visual Prep Compliance Agent
 
-**Commerce Context stream · Round 2 · Individual Build**
+> **Cube Buildathon Round 2 — Prep Manager Track**  
+> *Autonomous multi-agent system verifying e-commerce inbound product prep compliance against strict fulfillment rules.*
 
-> Five agents, one unit, one record that follows it.
-> A physical product arrives, gets prepped, gets shipped, comes back. At every step a person makes a fast judgment that nobody records. **You build the agent that makes one of those judgments, and leaves proof.**
-
-**New here? Read these first:**
-
-1. [`GITHUB-GUIDE.md`](GITHUB-GUIDE.md) explains how to fork the repository, set it up, build and push your work.
-2. [`RULES.md`](RULES.md) covers the repository and engineering rules.
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg?logo=next.js&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![SQLite](https://img.shields.io/badge/SQLite-3-003B57.svg?logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Tests](https://img.shields.io/badge/Tests-15%20Passed-emerald.svg)](backend/test_agentprep.py)
 
 ---
 
-## Your problem statement: Prep Manager
+## 1. Problem Understanding
 
-|                              |                                                                      |
-| ---------------------------- | -------------------------------------------------------------------- |
-| **Position in the chain**    | Step 2 of 5. Inbound to Amazon.                                      |
-| **Customer**                 | Prep center owner, or self-prepping seller                           |
-| **What gets recorded**       | Compliance proof                                                     |
-| **Who consumes your output** | Recovery Manager (disputed prep fees, lost or damaged inbound units) |
+When physical merchandise arrives at an e-commerce fulfillment center (e.g. Amazon FBA), it must comply with stringent packaging, sealing, and labeling rules. Non-compliant units incur:
+- **$25.00 defect penalties** per unit.
+- Receiving delays, return-to-sender freight costs, and suspended seller accounts.
+- Severe operational margin pressure: Prep centers operate on razor-thin **$0.40 to $1.10 per unit** margins.
 
-A unit is prepped for inbound shipment to Amazon. If the prep is wrong, Amazon charges a defect fee, and it arrives six weeks later attached to a shipment nobody can remember. The prep center has a work order saying what they were supposed to do, and their word that they did it. That is not evidence, and a meaningful share of those fees may be for defects that did not exist when the unit left the building.
+Traditional warehouse lines rely on manual human inspection which is error-prone, slow, and provides no audit trail when disputed defect fees arrive 6 weeks later.
 
-**What the agent checks, from photographs of the prepped unit:**
+---
 
-* Polybag present and correctly sealed
-* Suffocation warning present and legible, not obscured by the fold
-* FNSKU label flat, not on a seam, curve or edge
-* Original manufacturer barcode covered
-* Expiry date still legible after wrapping
-* Required handling marks: fragile, liquid, this way up
+## 2. What AgentPrep Does
 
-> **Look the rules up.** Amazon publishes its prep requirements. Do not infer them from examples and do not let a model guess. In a compliance check backed by an evidence record, "we retrieved something similar" is not a defensible answer.
+AgentPrep is an operational AI/computer-vision prep compliance agent for warehouse receiving.
+A warehouse operator selects a product and uploads photographs of the prepared product.
+AgentPrep evaluates the photographs against product-specific preparation rules and returns:
+- **PASS**: Granted only when visual evidence directly confirms compliance.
+- **FAIL**: Granted only when visual evidence directly proves a violation.
+- **UNCERTAIN**: Granted when evidence is insufficient, blurred, glare-obscured, or missing views.
 
-> **The hard constraint.** This touches every unit, not one in five. A prep center works on $0.40 to $1.10 per unit. Your cost per check has to live inside that.
+### Core Guiding Principle: "NEVER INVENT EVIDENCE"
+If the available images do not provide enough evidence, the system **MUST return UNCERTAIN** rather than guessing PASS or FAIL.
 
-### The chain you are part of
+---
 
-```text
- Supplier delivery      Inbound to Amazon     Outbound to buyer     Customer return        Money back
- ┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
- │ 01 Receiving │ ───▶ │ 02 Prep      │ ───▶ │ 03 Pack      │ ───▶ │ 04 Returns   │      │ 05 Recovery  │
- │ condition on │      │ compliance   │      │ contents at  │      │ condition &  │      │ reads all    │
- │ arrival      │      │ proof        │      │ seal         │      │ disposition  │      │ four → claim │
- └──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────▲───────┘
-        └─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
+## 3. Multi-Agent System Architecture
+
+AgentPrep coordinates 6 specialized subagents through a deterministic orchestrator:
+
+```
+PERCEPTION  ──▶  EVIDENCE  ──▶  RULES  ──▶  SUFFICIENCY  ──▶  DECISION  ──▶  ACTION
 ```
 
-The first four are the same machine: a camera, a model, and a decision bound to a record. What changes is the ruleset, the buyer and the moment. The fifth has no camera. It turns the other four's records into a claim.
-
-Your output has to be usable by another pod. That's deliberate, and it's scored.
-
----
-
-## Reference data
-
-`data/` holds a **dummy** CSV for reference while you design and build. Its columns and meanings are listed in [`data/README.md`](data/README.md).
-
-**The data is synthetic.** The SKUs, ASINs, FNSKUs, orders, suppliers, operators and amounts are all invented. The requirement flags and fee amounts are **not** Amazon's real rules or fees. Engineering rule 5 applies: look the authoritative rule up. The `photo_refs` paths are placeholders, and no images ship with this repo. Your fixtures and eval set are yours to capture.
-
-All five buildathon repos share the same `unit_id` values (`UNIT-0001` … `UNIT-0100`). You can follow one unit from receiving through recovery, the same way the real records will be joined. In the sample, each unit takes one route: **FBA** (prep, then Amazon ships it and charges fees) or **merchant-fulfilled / 3PL** (the seller packs it). So a unit has a Prep record or a Pack record, never both.
+1. **Prep Manager Agent**: Primary orchestrator coordinating the inspection lifecycle and audit trail.
+2. **Evidence Agent**: Evaluates image clarity, exposure, glare, and required view angle coverage (`front`, `back`, `side`).
+3. **Packaging Agent**: Inspects transparent polybag presence, bag boundaries, and heat-seal integrity.
+4. **Barcode / Label Agent**: Verifies FNSKU label placement flatness (never crossing curved edges or seams) and ensures manufacturer UPC/EAN barcodes are completely covered.
+5. **OCR / Text Agent**: Transcribes suffocation warnings, checks legibility, and parses expiration dates and orientation marks (`THIS WAY UP`, `FRAGILE`).
+6. **Rules Agent**: Evaluates product-specific rules dynamically loaded from the database.
+7. **Decision Agent**: Calculates evidence sufficiency and generates actionable operator steps.
 
 ---
 
-## How this works
+## 4. Product-Specific Demo Catalog
 
-You have a defined problem statement, supporting domain information and an engineering repository to build from. Real products are built backwards from the customer and forwards through the evidence. Understand the customer and operational workflow before writing code, then build and measure whether the solution works.
+Rules are **never hardcoded** in frontend components; they are persisted in SQLite and loaded dynamically:
 
-Every design decision should be testable. A wrong assumption caught early costs less than the same assumption discovered after implementation. You are assessed on that as much as on running software.
+| Product | Name | Category | Rules Enforced |
+| :--- | :--- | :--- | :--- |
+| **Product A** | Demo Bottle (`DEMO-BOTTLE-001`) | Liquid / Bottle | Polybag Presence, Polybag Sealing, Suffocation Warning, FNSKU Placement, Original Barcode Covered, Plastic Thickness (3 mil - physical) |
+| **Product B** | Boxed Electronics (`DEMO-ELEC-002`) | Boxed Electronics | FNSKU Placement, Original Barcode Covered, Handling Marks Visible, Drop-Test Durability (physical) |
+| **Product C** | Plush Toy (`DEMO-TOY-003`) | Plush & Soft Goods | Polybag Presence, Suffocation Warning, FNSKU Placement |
 
-### What you're given
+---
 
-* This problem statement
-* A domain brief covering the real economics, fee structures and what a working day in a warehouse looks like *(shared by the organisers)*
-* The engineering rules in [`RULES.md`](RULES.md)
-* Repository data and supporting resources
-* One fully worked package for Returns Manager (customer letter, PR/FAQ, one-pager) as a reference for the standard expected. **Read it. Don't copy it.**
+## 5. Quickstart & Local Setup
 
-### What you produce
+### Prerequisites
+- Python 3.10+ (tested on Python 3.10 – 3.14)
+- Node.js 18+ and npm
 
-Build your solution in **your own GitHub fork**.
+### 1. Backend Setup (FastAPI)
+```bash
+# From workspace root
+cd backend
 
-Your final Round 2 submission should include:
+# Install dependencies
+pip install -r requirements.txt
 
-* A working Prep Manager
-* A `README.md` explaining your solution, setup, assumptions and limitations
-* An `ARCHITECTURE.md`
-* An eval report/results with numbers and named failure modes
-* A working demo/video
-* A deployment URL, where applicable
-* Your mandatory LinkedIn post URL
+# Run automated test suite (all 15 tests pass)
+pytest -v test_agentprep.py
 
-## Build and submission flow
+# Launch FastAPI server
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+- API Swagger Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health check: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
-```text
-Understand
-    ↓
-Build
-    ↓
-Test
-    ↓
-Evaluate
-    ↓
-Document
-    ↓
-Demo / Deploy
-    ↓
-Submit
+### 2. Frontend Setup (Next.js)
+```bash
+# In a new terminal from workspace root
+cd frontend
+
+# Install dependencies (if not already installed)
+npm install
+
+# Start Next.js development server
+npm run dev
+```
+- Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 6. Environment Variables
+
+Create `.env` based on `.env.example`:
+
+```ini
+# Computer Vision Engine
+VISION_PROVIDER=local       # 'local' (deterministic engine) or 'openai' / 'gemini'
+VISION_API_KEY=            # API key for external VLM if configured
+VISION_MODEL=gpt-4o-mini   # External VLM model name
+OCR_PROVIDER=local
+REASONING_PROVIDER=rules
+DATABASE_URL=sqlite:///./database.db
+
+# Frontend
+PORT=8000
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
-Round 2 is an **individual build**.
-
-The official build phase begins on **25 September 2026 at 9:00 AM IST**.
-
-Submissions open from **27 September 2026**.
-
-The final submission deadline is **1 October 2026 at 6:00 PM IST**.
-
-The submission form closes permanently at the deadline. **There is no resubmission.**
-
-All code commits forming your Round 2 submission must be made during the authorised build phase. Do not continue making Round 2 code changes after the build phase ends.
-
-## What we're being straight with you about
-
-* **The core assumption is untested.** Nobody knows yet whether vision models can identify products and verify prep requirements reliably across long-tail catalogues without per-SKU training. Finding out that it doesn't hold, and documenting that clearly, counts as a useful outcome.
-* **Nobody has spoken to a customer yet.** If you can get a real prep center or seller on a call, ask them to rank the five problems by urgency. Don't ask whether they'd buy what you're building.
-* **The background documents disagree in places.** A contradiction is a finding. Raise it as an Issue labelled `finding`.
+> **Security Note**: Never commit API keys or `.env` files. Secrets are read exclusively through environment variables on the backend.
 
 ---
 
-## Evaluation
+## 7. API Endpoints Contract
 
-Your Round 2 submission is evaluated out of **100 points**:
+AgentPrep exposes a fully typed REST API:
 
-| Criterion                                    |  Points |
-| -------------------------------------------- | ------: |
-| Problem Understanding & Solution Relevance   |  **15** |
-| Agent Functionality & Decision Quality       |  **25** |
-| Evaluation, Accuracy & Uncertainty Handling  |  **25** |
-| Evidence, Traceability & Engineering Quality |  **20** |
-| UX, Demo & Documentation                     |  **15** |
-| **TOTAL**                                    | **100** |
-
-For the vision-based portions of the Prep Manager, use an appropriate unseen/held-out evaluation set and report your methodology, results, false positives, false negatives, `UNCERTAIN` cases and failure modes.
-
----
-
-## Evidence and decision traceability
-
-Your Prep Manager should leave evidence behind for its decisions.
-
-At minimum, the workflow should make it possible to understand:
-
-```text
-What was being prepped?
-        ↓
-What requirements were checked?
-        ↓
-What did the agent observe?
-        ↓
-What verdict was produced?
-        ↓
-Why?
-```
-
-Use the official evidence contract provided by the organisers as the baseline for interoperability with the other Managers.
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/inspections` | Upload photographs and run multi-agent inspection |
+| `GET` | `/api/inspections` | List inspection history with status and product filters |
+| `GET` | `/api/inspections/{id}` | Get complete inspection response with checks and agent events |
+| `GET` | `/api/inspections/{id}/evidence` | Get structured compliance evidence with real bounding box coordinates |
+| `GET` | `/api/inspections/{id}/agent-event` | Get machine-readable agent event contract |
+| `POST` | `/api/inspections/{id}/additional-evidence` | Upload supplementary photos (e.g. rear view) for uncertain checks |
+| `POST` | `/api/inspections/{id}/feedback` | Operator override / continuous learning feedback |
+| `GET` | `/api/inspections/{id}/recovery-claim` | Pod 05 Recovery Manager disputable claim payload |
+| `GET` | `/api/products` | List all registered products |
+| `GET` | `/api/products/{id}/rules` | Get dynamic preparation requirements for a product |
+| `GET` | `/api/rules` | Registry of all active rules with visual verifiability flags |
+| `GET` | `/api/agent/status` | Current status of Prep Manager and 6 active worker subagents |
+| `GET` | `/api/agent/activity` | Real-time audit trail of orchestrator and subagent events |
 
 ---
 
-## PASS · FAIL · UNCERTAIN
+## 8. Acceptance Test Results
 
-For individual checks:
+AgentPrep is verified across 7 core acceptance scenarios backed by automated test suites:
 
-* **PASS** — the evidence supports the condition.
-* **FAIL** — the evidence shows the condition is not met.
-* **UNCERTAIN** — the evidence is insufficient for a reliable judgment.
+| Scenario | Input Product & Visual Evidence | Expected Result | Actual Result | Status |
+| :--- | :--- | :--- | :--- | :---: |
+| **Scenario 1** | Demo Bottle: Polybag present, sealed, warning legible, flat FNSKU, barcode covered | **PASS** | **PASS** | `PASSED` |
+| **Scenario 2** | Demo Bottle: FNSKU crosses curved package edge | **FAIL** (Curved edge violation) | **FAIL** (Curved edge violation) | `PASSED` |
+| **Scenario 3** | Demo Bottle: Original UPC barcode left exposed on rear | **FAIL** (Exposed barcode) | **FAIL** (Exposed barcode) | `PASSED` |
+| **Scenario 4** | Demo Bottle: Polybag missing suffocation warning text | **FAIL** (Missing warning) | **FAIL** (Missing warning) | `PASSED` |
+| **Scenario 5** | Demo Bottle: Front view only; rear surface omitted | **UNCERTAIN** (Needs rear photo) | **UNCERTAIN** (Needs rear photo) | `PASSED` |
+| **Scenario 6** | Boxed Electronics: Severe lighting glare and motion blur | **UNCERTAIN** (Quality insufficient) | **UNCERTAIN** (Quality insufficient) | `PASSED` |
+| **Scenario 7** | Plush Toy: Compliant polybagging and warning print | **PASS** | **PASS** | `PASSED` |
 
-`UNCERTAIN` is not simply a low-confidence PASS.
+### Key Acceptance Test (Section 25)
+- **Input**: Demo Bottle with FNSKU overlapping curved edge.
+- **Output**:
+  - `OVERALL: FAIL`
+  - `Polybag Presence: PASS`
+  - `Suffocation Warning: PASS`
+  - `FNSKU Placement: FAIL` (Reason: *FNSKU barcode label bounding box intersects a curved package edge or seam.*)
+  - `Original Barcode Covered: PASS` (Reason: *Original barcode appears fully covered.*)
+  - `Agent Action: CORRECT_AND_RESCAN` (Action: *Reposition FNSKU label entirely onto the flat front surface.*)
 
 ---
 
-*CUBE Buildathon · Commerce Context*
+## 9. Security & Untrusted Input Protection
+
+1. **Upload Validation**: File extension validation (`.jpg`, `.jpeg`, `.png`, `.webp`), 10 MB payload limits, and UUID sanitization.
+2. **OCR Prompt Injection Shield**: OCR text extracted from package labels is strictly treated as untrusted data. Strings such as *"IGNORE ALL PREVIOUS INSTRUCTIONS"* are never injected into LLM system prompts.
+3. **No Secret Exposure**: Zero secrets or credentials are sent to the client browser.
+4. **Deterministic Fallback**: Runs 100% locally with zero external API calls if no VLM key is provided.
+
+---
+
+## 10. Assumptions & Limitations
+
+- **Assumptions**:
+  - Minimum photographic resolution $\ge 640 \times 480\text{ px}$.
+  - Camera views are labeled or determined through multi-angle capture workflows.
+- **Limitations**:
+  - Physical properties (plastic film gauge, micrometer thickness, adhesive tensile strength, drop-test impact) cannot be reliably determined from 2D photographs and return `UNCERTAIN / Out of Scope`.
+  - Hidden surfaces not captured in photos cannot be evaluated without additional captures.

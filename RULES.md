@@ -1,65 +1,151 @@
-# Rules
+# AgentPrep — Preparation Rules & Decision Semantics Registry
 
-There are two sets. The **repository rules** define how participants manage their individual Round 2 work, and the **engineering rules** are part of what you are assessed on.
+> **Visual Prep Compliance Agent for Inbound Fulfillment**  
+> Comprehensive specification of product-specific rules, evaluation logic, evidence requirements, and 3-State decision semantics.
 
-## Repository rules
+---
 
-| #  | Rule                                                                                                        | How it's enforced                                               |
-| -- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| R1 | Round 2 is an **individual build**.                                                                         | Participant responsibility                                      |
-| R2 | Each participant must work in their **own GitHub fork** of this repository.                                 | Participant responsibility                                      |
-| R3 | Your fork is your Round 2 development and final submission repository.                                      | Participant responsibility                                      |
-| R4 | All code commits forming your Round 2 submission must be made during the **authorised build phase**.        | Repository history / evaluation                                 |
-| R5 | Do not continue making Round 2 code changes after the build phase ends.                                     | Repository history / evaluation                                 |
-| R6 | No secrets in the repo: API keys, tokens, passwords, `.env` files.                                          | You. A leaked key is revoked, and it may affect the submission. |
-| R7 | Do not edit, delete or interfere with the organiser's official repository or another participant's work.    | Participant responsibility                                      |
-| R8 | Once the official submission form is submitted, the submission is **final**. No resubmissions are accepted. | Submission process                                              |
+## 1. Core Decision Philosophy: "Never Invent Evidence"
 
-The official repository, shared `data/` files and top-level documentation are provided as reference resources. Build your solution in **your own fork**.
+AgentPrep enforces strict, deterministic compliance evaluation across all inbound e-commerce goods. The foundational rule across the entire agent pipeline is:
 
-If any shared documentation or data appears incorrect or contradictory, raise it with the organisers rather than silently modifying the official repository.
+$$\text{Decision} \in \{\text{PASS}, \text{FAIL}, \text{UNCERTAIN}\}$$
 
-### Round 2 timeline
+- **PASS**: Granted **only** when direct, unambiguous visual evidence proves full compliance with the requirement.
+- **FAIL**: Granted **only** when visual evidence directly proves a violation of the requirement (e.g., FNSKU label overlaps a curved edge or an exposed barcode is visible).
+- **UNCERTAIN**: Granted whenever evidence is **insufficient**, **blurry**, **obscured by glare**, **missing required camera views**, or when the requirement is **physically non-verifiable** from 2D photographs.
 
-* **Build phase begins:** 25 September 2026 · 9:00 AM IST
-* **Submissions open:** 27 September 2026
-* **Final submission deadline:** 1 October 2026 · 6:00 PM IST
+> **Operational Safeguard**: The system **never** converts uncertainty into failure, and **never** converts uncertainty into success. Falsely guessing PASS risks severe Amazon inbound defect penalties ($25.00/unit), while falsely guessing FAIL stalls warehouse operations.
 
-The submission form closes permanently at the final deadline.
+---
 
-**There is no reopening and no resubmission.**
+## 2. Visually Verifiable vs. Out-of-Scope Requirements
 
-## Engineering rules (not negotiable)
+| Category | Requirement | Visually Verifiable? | Evaluation Method | Agent Behavior if Missing / Inconclusive |
+| :--- | :--- | :---: | :--- | :--- |
+| **Packaging** | Polybag Enclosure | **YES** | Object detection & boundary analysis | `UNCERTAIN` if image blurred / obscured |
+| **Packaging** | Polybag Heat Sealing | **YES** | Seal edge integrity analysis | `FAIL` if open seam; `UNCERTAIN` if view missing |
+| **Packaging** | Film Thickness (1.5 / 3.0 mil) | **NO** | Out of visual scope | **Always `UNCERTAIN`** (Requires micrometer) |
+| **Packaging** | Drop-Test Durability | **NO** | Out of visual scope | **Always `UNCERTAIN`** (Requires drop rig) |
+| **Packaging** | Adhesive Peel Strength | **NO** | Out of visual scope | **Always `UNCERTAIN`** (Requires tensile test) |
+| **Warning** | Suffocation Warning Print | **YES** | OCR text & legibility detection | `FAIL` if missing; `UNCERTAIN` if folded/blurred |
+| **Warning** | Handling Marks (This Way Up) | **YES** | Symbol / OCR pattern detection | `FAIL` if missing; `UNCERTAIN` if obscured |
+| **Labeling** | FNSKU Placement (Flat Surface) | **YES** | Barcode geometry & contour check | `FAIL` if overlapping curved edge/seam |
+| **Labeling** | Original Barcode Covered | **YES** | UPC/EAN detection on rear view | `FAIL` if exposed; `UNCERTAIN` if rear view missing |
+| **Perishable** | Expiration Date Legibility | **YES** | OCR date parsing (EXP MM/YYYY) | `FAIL` if missing/expired; `UNCERTAIN` if unreadable |
 
-These are the craft part of the assessment. Each one is cheap to follow now and expensive to retrofit.
+---
 
-### 1. Tenancy isolation before any feature
+## 3. Product-Specific Rule Specifications
 
-Every table gets row-level security scoped to the organisation, **enabled and forced**. Test that a second organisation sees zero rows, and that it can't fetch another organisation's image by guessing a key. Row isolation with a shared, guessable image path is a leak that looks green.
+### Product A: Demo Bottle (`DEMO-BOTTLE-001`)
+- **Product Name**: Liquid Container (500ml Shampoo / Essential Oils)
+- **ASIN**: `B08N5WRWNW`
+- **SKU**: `LQD-BTL-001`
+- **Category**: Liquid / Bottle
+- **Required Camera Views**: `front`, `back`
 
-*The sample data has two orgs (`org_demo_alpha`, `org_demo_bravo`) for exactly this test.*
+#### Applicable Rules:
+1. **Polybag Presence** (`bottle_polybag_presence`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: Clear protective polybag must fully enclose bottle to contain potential liquid leaks.
+   - *PASS*: Polybag boundary encompasses product contour.
+   - *FAIL*: No polybag detected around liquid container.
+2. **Polybag Sealing** (`bottle_polybag_sealing`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: Continuous heat-seal or tape closure across polybag opening.
+   - *PASS*: Heat seal detected intact with zero open seams.
+   - *FAIL*: Open slit or unsealed flap detected.
+3. **Suffocation Warning** (`bottle_suffocation_warning`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: Required print *"WARNING: TO AVOID DANGER OF SUFFOCATION..."* present and legible.
+   - *PASS*: Warning text detected and OCR confidence $\ge 0.85$.
+   - *FAIL*: Polybag opening $\ge 5$ inches without warning text.
+4. **FNSKU Placement** (`bottle_fnsku_placement`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: FNSKU barcode must be positioned completely on a flat package surface.
+   - *PASS*: Bounding box does not intersect curved container edges or heat seams.
+   - *FAIL*: Bounding box overlaps bottle curvature or edge seam.
+   - *Recommended Action*: Reposition FNSKU label entirely onto flat front surface.
+5. **Original Barcode Covered** (`bottle_manufacturer_barcode`)
+   - *Verifiable*: Yes (Camera: `back`)
+   - *Evaluation*: Original manufacturer UPC/EAN barcode must be fully covered.
+   - *PASS*: Original barcode completely obscured or covered by opaque label.
+   - *FAIL*: Original UPC barcode visible and scan-capable.
+   - *UNCERTAIN*: Rear camera view not provided (`REQUEST_ADDITIONAL_PHOTO`).
+6. **Plastic Thickness (3 mil min)** (`bottle_plastic_thickness`)
+   - *Verifiable*: No (Physical property)
+   - *Status*: `UNCERTAIN` (Does not block visual approval).
 
-### 2. Batch your model calls
+---
 
-Make **one** call per unit carrying all checks, never one call per check. At prep volumes that is the difference between a 90% gross margin and none.
+### Product B: Boxed Electronics (`DEMO-ELEC-002`)
+- **Product Name**: Boxed Electronics Hub (Smart Gateway)
+- **ASIN**: `B09K8Y7Z1X`
+- **SKU**: `ELE-HUB-002`
+- **Category**: Boxed Electronics
+- **Required Camera Views**: `front`, `back`
 
-### 3. Fail open
+#### Applicable Rules:
+1. **FNSKU Placement** (`elec_fnsku_placement`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: FNSKU label placed flat on smooth box face without crossing box folds/edges.
+2. **Original Barcode Covered** (`elec_manufacturer_barcode`)
+   - *Verifiable*: Yes (Camera: `back`)
+   - *Evaluation*: Manufacturer serial / UPC barcode completely covered.
+3. **Handling Marks Visible** (`elec_handling_mark`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: Orientation arrows (`THIS WAY UP`) or `FRAGILE` symbol clearly printed.
+4. **Drop-Test Certification** (`elec_drop_test_certification`)
+   - *Verifiable*: No (Out of visual scope $\rightarrow$ `UNCERTAIN`).
+- *Does NOT Require*: Polybagging or Suffocation Warning.
 
-A model error or timeout still saves the capture and still produces a record, marked `pending`. Nothing blocks the operator. Anything that makes a warehouse line wait gets worked around within a day of deployment.
+---
 
-### 4. Uncertain is a valid verdict
+### Product C: Plush Toy (`DEMO-TOY-003`)
+- **Product Name**: Plush Bear Toy (Soft Plushie)
+- **ASIN**: `B07V2X9C8L`
+- **SKU**: `TOY-PLSH-003`
+- **Category**: Plush & Soft Goods
+- **Required Camera Views**: `front`
 
-It isn't a low-confidence pass. A model that declines to judge a bad photo is more credible to an operations person than one that is confidently wrong. Build it as a first-class outcome and show it in the interface.
+#### Applicable Rules:
+1. **Polybag Presence** (`toy_polybag_presence`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: Plush toy must be sealed in a clean, transparent polybag to prevent dust/soil contamination.
+2. **Suffocation Warning Legibility** (`toy_suffocation_warning`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: Legible suffocation warning statement on polybag exterior.
+3. **FNSKU Placement** (`toy_fnsku_placement`)
+   - *Verifiable*: Yes (Camera: `front`)
+   - *Evaluation*: FNSKU label affixed to exterior of polybag.
+- *Does NOT Require*: Expiry date or fragile handling marks.
 
-*The sample data uses `uncertain` and `pending_review` as values on purpose.*
+---
 
-### 5. Look authoritative rules up
+## 4. Evidence Sufficiency & Action Synthesis
 
-Where the channel publishes the requirement, retrieve it. Don't let a model recall it from memory, and don't infer it from examples. **That includes the sample CSVs in this repo.** Their requirement flags and fee amounts are dummy values.
+When an inspection completes, the **Decision Agent** aggregates all check evaluations:
 
-## Honesty rules (assessed)
+```
+IF any verifiable rule is FAIL:
+    OVERALL = FAIL
+    Action = CORRECT_AND_RESCAN
+    Rescan Required = True
 
-* **Say what you built, not what it sounds like.** You have a content hash. You don't have a tamper-evident, immutable or anchored record, unless you actually built one and can show it.
-* **Overrides are data.** When an operator disagrees with the agent, capture the original verdict, the new verdict and a reason. Never discard those rows silently.
-* **"It works well" isn't a result.** Report a number per check, with false positives and false negatives separately and the method written down. An honest 61% you can break down beats a 95% you can't.
-* **Contradictions are findings.** Where the background documents disagree, raise it. Don't silently pick one side.
+ELSE IF any verifiable rule is UNCERTAIN:
+    OVERALL = UNCERTAIN
+    Action = REQUEST_ADDITIONAL_PHOTO (or HUMAN_REVIEW)
+    Rescan Required = True
+
+ELSE (all verifiable rules PASS):
+    OVERALL = PASS
+    Action = PASS
+    Rescan Required = False
+```
+
+### Action Types:
+- `PASS`: Unit meets all compliance standards. Proceed to packing/shipment.
+- `CORRECT_AND_RESCAN`: Defect identified. Operator is provided clear instructions on how to correct the unit (e.g. peel and reposition FNSKU, cover exposed UPC).
+- `REQUEST_ADDITIONAL_PHOTO`: Missing camera angle or blurred image. Operator captures supplementary photo (e.g. rear surface).
+- `HUMAN_REVIEW`: Ambiguous edge cases requiring warehouse lead sign-off.
