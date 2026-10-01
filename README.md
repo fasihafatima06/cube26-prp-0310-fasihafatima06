@@ -9,11 +9,13 @@
 [![SQLite](https://img.shields.io/badge/SQLite-3-003B57.svg?logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Tests](https://img.shields.io/badge/Tests-15%20Passed-emerald.svg)](backend/test_agentprep.py)
 [![Netlify Status](https://img.shields.io/badge/Netlify-Live%20Demo-00A09D.svg?logo=netlify&logoColor=white)](https://agentprep.netlify.app)
+[![YouTube Demo](https://img.shields.io/badge/YouTube-Video%20Demo-FF0000.svg?logo=youtube&logoColor=white)](https://youtu.be/Y4uIGEbHock?si=SrHmUFTGmJtcd0hO)
 
 ---
 
-### 🌐 Live Deployment & Interactive Demo
+### 🌐 Live Deployment & Resources
 - **🖥️ Live Web Application:** [https://agentprep.netlify.app](https://agentprep.netlify.app)
+- **🎥 YouTube Video Walkthrough:** [https://youtu.be/Y4uIGEbHock?si=SrHmUFTGmJtcd0hO](https://youtu.be/Y4uIGEbHock?si=SrHmUFTGmJtcd0hO)
 - **⚡ Live Backend API & Swagger Docs:** [https://cube26-prp-0310-fasihafatima06.onrender.com/docs](https://cube26-prp-0310-fasihafatima06.onrender.com/docs)
 - **📦 GitHub Repository:** [https://github.com/fasihafatima06/cube26-prp-0310-fasihafatima06](https://github.com/fasihafatima06/cube26-prp-0310-fasihafatima06)
 
